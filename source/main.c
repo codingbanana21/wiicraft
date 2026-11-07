@@ -38,8 +38,8 @@ const int node_size = 16;
 const float player_speed = 0.5f;
 
 float player_x = 256.0f;
-float player_y = 0.0f;
 float player_z = 256.0f;
+float player_y = 0.0f;
 
 // float player_velocity_x = 0.0f;
 float player_velocity_y = 0.0f;
@@ -48,12 +48,12 @@ float player_velocity_y = 0.0f;
 float camera_rot_x = 0.0f;
 float camera_rot_y = 0.0f;
 float camera_look_x;
-float camera_look_y;
 float camera_look_z;
+float camera_look_y;
 
 int player_node_x;
-int player_node_y;
 int player_node_z;
+int player_node_y;
 
 // uint8_t nodes[MAP_SIZE];
 uint8_t *nodes;
@@ -251,12 +251,12 @@ void player_input() {
     }
 
     camera_look_x = sin(camera_rot_x) * cos(camera_rot_y) * 2;
-    camera_look_y = sin(camera_rot_y) * 2;
     camera_look_z = cos(camera_rot_x) * cos(camera_rot_y) * 2;
+    camera_look_y = sin(camera_rot_y) * 2;
 
     unsigned int node_number = (clamp(player_node_x + (int)camera_look_x, 0, 31) * 512) + 
-        (clamp(player_node_z + (int)camera_look_y, 0, 31) * 16) + 
-        (clamp(player_node_y - (int)camera_look_z, 0, 15));
+        (clamp(player_node_z + (int)camera_look_z, 0, 31) * 16) + 
+        (clamp(-player_node_y - (int)camera_look_y, 0, 15));
 
     if (WPAD_ButtonsHeld(0) & WPAD_BUTTON_UP) {
         player_x += camera_look_x * player_speed;
@@ -268,11 +268,13 @@ void player_input() {
         player_z -= camera_look_z * player_speed;
     }
 
-    nodes[node_number] = 3;
+    if (WPAD_ButtonsHeld(0) & WPAD_BUTTON_B) {
+        nodes[node_number] = 0;
+    }
 
-    // if (WPAD_ButtonsDown(0) & WPAD_BUTTON_B) {
-    //     nodes[node_number] = 1;
-    // }
+    if (WPAD_ButtonsHeld(0) & WPAD_BUTTON_A) {
+        nodes[node_number] = 3;
+    }
 }
 
 
