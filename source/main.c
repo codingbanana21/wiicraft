@@ -27,6 +27,7 @@ GRRLIB_texImg *tex_shot;
 void player_input();
 void draw_wiimotes();
 bool is_node_visible(float node_x, float node_y, float node_z);
+int nodes_pos(int x, int z, int y);
 float clamp(float value, float min, float max);
 
 bool project_running = true;
@@ -34,12 +35,11 @@ bool project_running = true;
 unsigned int frame = 0;
 const int view_range = 8;
 const int max_nodes_drawn = 4096;
-const int node_size = 16;
 const float player_speed = 0.5f;
 
 float player_x = 256.0f;
 float player_z = 256.0f;
-float player_y = 0.0f;
+float player_y = 64.0f;
 
 // float player_velocity_x = 0.0f;
 float player_velocity_y = 0.0f;
@@ -51,11 +51,6 @@ float camera_look_x;
 float camera_look_z;
 float camera_look_y;
 
-int player_node_x;
-int player_node_z;
-int player_node_y;
-
-// uint8_t nodes[MAP_SIZE];
 uint8_t *nodes;
 
 
@@ -93,28 +88,19 @@ int main(int argc, char **argv) {
     }
 
     // make map
-    unsigned int node_number = 0;
-
-    for (int i=0;i<32;i++) {
-        for (int j=0;j<32;j++) {
-            int hight = rand() % 5 + 8;
-            node_number += 16 - hight;
+    for (int x=0;x<32;x++) {
+        for (int z=0;z<32;z++) {
+            unsigned int hight = rand() % 3 + 5;
 
             // make grass
-            nodes[node_number] = 1;
-            node_number++;
+            nodes[nodes_pos(x, z, hight)] = 1;
             hight--;
 
             while (hight > 0) {
-                nodes[node_number] = 2;
-                node_number++;
+                nodes[nodes_pos(x, z, hight)] = 2;
                 hight--;
             }
         }
-    }
-
-    if (node_number > MAP_SIZE) {
-        return -1;
     }
 	
     while (project_running) {
@@ -122,22 +108,15 @@ int main(int argc, char **argv) {
 
         player_input();
 
-        player_node_x = round(player_x / node_size);
-        player_node_y = round(player_y / node_size);
-        player_node_z = round(player_z / node_size);
-
-        node_number = (clamp(player_node_x,0,31) * 512) + (clamp(player_node_z,0,31) * 16) + clamp(-player_node_y + 2,0,15);
-
         // jumping
-        if (nodes[node_number] != 0) {
+        if (nodes[nodes_pos(player_x / 16.0f, player_z / 16.0f, player_y / 16.0f)] != 0) {
             player_velocity_y = 0.0f;
-            player_y = player_node_y * node_size + node_size / 2.0f;
+            player_y = (int)player_y;
 
             if (WPAD_ButtonsHeld(0) & WPAD_BUTTON_1) {
                 player_velocity_y = 1.0f;
             }
-        }
-        else {
+        } else {
             player_velocity_y -= 0.03f;
         }
 
@@ -160,57 +139,79 @@ int main(int argc, char **argv) {
         int nodes_drawn = 0;
 
         // draw map of nodes
-        for (int x = player_node_x - view_range; x < player_node_x + view_range; x++) {
-            for (int z = player_node_z - view_range; z < player_node_z + view_range; z++) {
-                for (int y = - player_node_y - view_range; y < - player_node_y + view_range; y++) {
-                    node_number = (clamp(x,0,31) * 512) + (clamp(z,0,31) * 16) + clamp(y,0,15);
-
-                    if (node_number > MAP_SIZE) {
-                        return -1;
-                    }
-
-                    if (nodes[node_number] == 0 || nodes_drawn >= max_nodes_drawn) {
+        for (int x = round(player_x / 16.0f) - view_range; x < round(player_x / 16.0f) + view_range; x++) {
+            for (int z = round(player_z / 16.0f) - view_range; z < round(player_z / 16.0f) + view_range; z++) {
+                for (int y = round(player_y / 16.0f) - view_range; y < round(player_y / 16.0f) + view_range; y++) {
+                    if (nodes[nodes_pos(x, z, y)] == 0 || nodes_drawn >= max_nodes_drawn) {
                         continue;
                     }
 
-                    const float node_x = x * node_size;
-                    const float node_y = y * -node_size;
-                    const float node_z = z * node_size;   
-
                     // Only draw if visible
-                    if (!is_node_visible(node_x, node_y, node_z)) {
+                    if (!is_node_visible(x * 16, y * 16, z * 16)) {
                         continue;
                     }
                     
                     GRRLIB_ObjectViewBegin();
                     GRRLIB_ObjectViewRotate(0, 0, 0);
-                    GRRLIB_ObjectViewScale(node_size, node_size, node_size);
-                    GRRLIB_ObjectViewTrans(node_x, node_y, node_z);
+                    GRRLIB_ObjectViewScale(16, 16, 16);
+                    GRRLIB_ObjectViewTrans(x * 16, y * 16, z * 16);
                     GRRLIB_ObjectViewEnd();
 
                     nodes_drawn++;
 
-                    if (nodes[node_number] == 1) {
+                    if (nodes[nodes_pos(x, z, y)] == 1) {
                         GRRLIB_DrawCube(1, 1, 0x228e13ff);
                     }
-                    else if (nodes[node_number] == 2) {
+                    else if (nodes[nodes_pos(x, z, y)] == 2) {
                         GRRLIB_DrawCube(1, 1, 0x352608ff);
                     }
-                    else if (nodes[node_number] == 3) {
+                    else if (nodes[nodes_pos(x, z, y)] == 3) {
                         GRRLIB_DrawCube(1, 1, 0xffffffff);
                     }  
                 }
             }
         }
+        // for (int x = (int)player_x - view_range; x < (int)player_x + view_range; x++) {
+        //     for (int z = (int)player_z - view_range; z < (int)player_z + view_range; z++) {
+        //         for (int y = (int)player_y - view_range; y < (int)player_y + view_range; y++) {
+        //             uint8_t node = nodes[nodes_pos(x, z, y)];
+
+        //             if (nodes[node] == 0 || nodes_drawn >= max_nodes_drawn) {
+        //                 continue;
+        //             }
+
+        //             // Only draw if visible
+        //             // if (!is_node_visible(x, z, y)) {
+        //             //     continue;
+        //             // }
+                    
+        //             GRRLIB_ObjectViewBegin();
+        //             GRRLIB_ObjectViewRotate(0, 0, 0);
+        //             GRRLIB_ObjectViewScale(16, 16, 16);
+        //             GRRLIB_ObjectViewTrans(x, z, y);
+        //             GRRLIB_ObjectViewEnd();
+
+        //             nodes_drawn++;
+
+        //             if (nodes[node] == 1) {
+        //                 GRRLIB_DrawCube(1, 1, 0x228e13ff);
+        //             } else if (nodes[node] == 2) {
+        //                 GRRLIB_DrawCube(1, 1, 0x352608ff);
+        //             } else if (nodes[node] == 3) {
+        //                 GRRLIB_DrawCube(1, 1, 0xffffffff);
+        //             }  
+        //         }
+        //     }
+        // }
 
         // UI
         GX_SetCullMode(GX_CULL_NONE);
         GRRLIB_2dMode();
         draw_wiimotes();
 
-        GRRLIB_Printf(0, 25, tex_BMfont5, GRRLIB_WHITE, 1, "Player pos x %f y %f z %f", player_x, player_y, player_z);
-        GRRLIB_Printf(0, 50, tex_BMfont5, GRRLIB_WHITE, 1, "Player node pos x %d y %d z %d", player_node_x, player_node_y, player_node_z);
-        GRRLIB_Printf(0, 75, tex_BMfont5, GRRLIB_WHITE, 1, "Camera look pos x %f y %f z %f", camera_look_x, camera_look_y, camera_look_z);
+        GRRLIB_Printf(0, 25, tex_BMfont5, GRRLIB_WHITE, 1, "Player pos x %f z %f y %f", player_x, player_z, player_y);
+        GRRLIB_Printf(0, 50, tex_BMfont5, GRRLIB_WHITE, 1, "Player node pos x %d z %d y %d", (int)player_x, (int)player_z, (int)player_y);
+        GRRLIB_Printf(0, 75, tex_BMfont5, GRRLIB_WHITE, 1, "Camera look pos x %f z %f y %f", camera_look_x, camera_look_z, camera_look_y);
         GRRLIB_Printf(0, 100, tex_BMfont5, GRRLIB_WHITE, 1, "Nodes drawn %d", nodes_drawn);
         GRRLIB_Render();
     }
@@ -254,10 +255,6 @@ void player_input() {
     camera_look_z = cos(camera_rot_x) * cos(camera_rot_y) * 2;
     camera_look_y = sin(camera_rot_y) * 2;
 
-    unsigned int node_number = (clamp(player_node_x + (int)camera_look_x, 0, 31) * 512) + 
-        (clamp(player_node_z + (int)camera_look_z, 0, 31) * 16) + 
-        (clamp(-player_node_y - (int)camera_look_y, 0, 15));
-
     if (WPAD_ButtonsHeld(0) & WPAD_BUTTON_UP) {
         player_x += camera_look_x * player_speed;
         player_z += camera_look_z * player_speed;
@@ -269,11 +266,15 @@ void player_input() {
     }
 
     if (WPAD_ButtonsHeld(0) & WPAD_BUTTON_B) {
-        nodes[node_number] = 0;
+        nodes[nodes_pos((int)player_x + camera_look_x, 
+            (int)player_z + camera_look_z, 
+            (int)player_y + camera_look_y)] = 0;
     }
 
     if (WPAD_ButtonsHeld(0) & WPAD_BUTTON_A) {
-        nodes[node_number] = 3;
+        nodes[nodes_pos((int)player_x + camera_look_x, 
+            (int)player_z + camera_look_z, 
+            (int)player_y + camera_look_y)] = 3;
     }
 }
 
@@ -290,17 +291,18 @@ void draw_wiimotes() {
 
         if (wiimote == 0) {
             GRRLIB_DrawImg(data->ir.x, data->ir.y, tex_shot, 1, 0.15, 0.15, GRRLIB_BLUE);
-        }
-        else if (wiimote == 1) {
+        } else if (wiimote == 1) {
             GRRLIB_DrawImg(data->ir.x, data->ir.y, tex_shot, 1, 0.15, 0.15, GRRLIB_RED);
-        }
-        else if (wiimote == 2) {
+        } else if (wiimote == 2) {
             GRRLIB_DrawImg(data->ir.x, data->ir.y, tex_shot, 1, 0.15, 0.15, GRRLIB_GREEN);
-        }
-        else {
+        } else {
             GRRLIB_DrawImg(data->ir.x, data->ir.y, tex_shot, 1, 0.15, 0.15, GRRLIB_YELLOW);
         }
     }
+}
+
+int nodes_pos(int x, int z, int y) {
+    return (clamp(x, 0, 31) * 512) + (clamp(z, 0, 31) * 16) + clamp(y, 0, 15);
 }
 
 
