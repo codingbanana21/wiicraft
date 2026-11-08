@@ -27,7 +27,7 @@ GRRLIB_texImg *tex_shot;
 void player_input();
 void draw_wiimotes();
 bool is_node_visible(float node_x, float node_y, float node_z);
-int nodes_pos(int x, int z, int y);
+int nodes_pos(float x, float y, float z);
 float clamp(float value, float min, float max);
 
 bool project_running = true;
@@ -39,7 +39,7 @@ const float player_speed = 0.5f;
 
 float player_x = 256.0f;
 float player_z = 256.0f;
-float player_y = 64.0f;
+float player_y = 128.0f;
 
 // float player_velocity_x = 0.0f;
 float player_velocity_y = 0.0f;
@@ -93,11 +93,11 @@ int main(int argc, char **argv) {
             unsigned int hight = rand() % 3 + 5;
 
             // make grass
-            nodes[nodes_pos(x, z, hight)] = 1;
+            nodes[nodes_pos(x, hight, z)] = 1;
             hight--;
 
             while (hight > 0) {
-                nodes[nodes_pos(x, z, hight)] = 2;
+                nodes[nodes_pos(x, hight, z)] = 2;
                 hight--;
             }
         }
@@ -107,20 +107,6 @@ int main(int argc, char **argv) {
         frame++;
 
         player_input();
-
-        // jumping
-        if (nodes[nodes_pos(player_x / 16.0f, player_z / 16.0f, player_y / 16.0f)] != 0) {
-            player_velocity_y = 0.0f;
-            player_y = (int)player_y;
-
-            if (WPAD_ButtonsHeld(0) & WPAD_BUTTON_1) {
-                player_velocity_y = 1.0f;
-            }
-        } else {
-            player_velocity_y -= 0.03f;
-        }
-
-        player_y += player_velocity_y;
 
         GRRLIB_Camera3dSettings(player_x, player_y, player_z, 
             0,1,0,
@@ -132,7 +118,7 @@ int main(int argc, char **argv) {
 
         GRRLIB_3dMode(0.1, 1000, 75, 0,1);
         GRRLIB_SetLightAmbient(0x111111FF);
-        GRRLIB_SetLightDiff(0, (guVector){player_x, 64.0f, player_z}, 50.0f, 1.0f, 0xffffffff);
+        GRRLIB_SetLightDiff(0, (guVector){player_x, 256.0f, player_z}, 50.0f, 1.0f, 0xffffffff);
 
         GX_SetCullMode(GX_CULL_FRONT);
 
@@ -142,7 +128,7 @@ int main(int argc, char **argv) {
         for (int x = round(player_x / 16.0f) - view_range; x < round(player_x / 16.0f) + view_range; x++) {
             for (int z = round(player_z / 16.0f) - view_range; z < round(player_z / 16.0f) + view_range; z++) {
                 for (int y = round(player_y / 16.0f) - view_range; y < round(player_y / 16.0f) + view_range; y++) {
-                    if (nodes[nodes_pos(x, z, y)] == 0 || nodes_drawn >= max_nodes_drawn) {
+                    if (nodes[nodes_pos(x, y, z)] == 0 || nodes_drawn >= max_nodes_drawn) {
                         continue;
                     }
 
@@ -159,60 +145,28 @@ int main(int argc, char **argv) {
 
                     nodes_drawn++;
 
-                    if (nodes[nodes_pos(x, z, y)] == 1) {
+                    if (nodes[nodes_pos(x, y, z)] == 1) {
                         GRRLIB_DrawCube(1, 1, 0x228e13ff);
                     }
-                    else if (nodes[nodes_pos(x, z, y)] == 2) {
+                    else if (nodes[nodes_pos(x, y, z)] == 2) {
                         GRRLIB_DrawCube(1, 1, 0x352608ff);
                     }
-                    else if (nodes[nodes_pos(x, z, y)] == 3) {
+                    else if (nodes[nodes_pos(x, y, z)] == 3) {
                         GRRLIB_DrawCube(1, 1, 0xffffffff);
                     }  
                 }
             }
         }
-        // for (int x = (int)player_x - view_range; x < (int)player_x + view_range; x++) {
-        //     for (int z = (int)player_z - view_range; z < (int)player_z + view_range; z++) {
-        //         for (int y = (int)player_y - view_range; y < (int)player_y + view_range; y++) {
-        //             uint8_t node = nodes[nodes_pos(x, z, y)];
-
-        //             if (nodes[node] == 0 || nodes_drawn >= max_nodes_drawn) {
-        //                 continue;
-        //             }
-
-        //             // Only draw if visible
-        //             // if (!is_node_visible(x, z, y)) {
-        //             //     continue;
-        //             // }
-                    
-        //             GRRLIB_ObjectViewBegin();
-        //             GRRLIB_ObjectViewRotate(0, 0, 0);
-        //             GRRLIB_ObjectViewScale(16, 16, 16);
-        //             GRRLIB_ObjectViewTrans(x, z, y);
-        //             GRRLIB_ObjectViewEnd();
-
-        //             nodes_drawn++;
-
-        //             if (nodes[node] == 1) {
-        //                 GRRLIB_DrawCube(1, 1, 0x228e13ff);
-        //             } else if (nodes[node] == 2) {
-        //                 GRRLIB_DrawCube(1, 1, 0x352608ff);
-        //             } else if (nodes[node] == 3) {
-        //                 GRRLIB_DrawCube(1, 1, 0xffffffff);
-        //             }  
-        //         }
-        //     }
-        // }
 
         // UI
         GX_SetCullMode(GX_CULL_NONE);
         GRRLIB_2dMode();
         draw_wiimotes();
 
-        GRRLIB_Printf(0, 25, tex_BMfont5, GRRLIB_WHITE, 1, "Player pos x %f z %f y %f", player_x, player_z, player_y);
-        GRRLIB_Printf(0, 50, tex_BMfont5, GRRLIB_WHITE, 1, "Player node pos x %d z %d y %d", (int)player_x, (int)player_z, (int)player_y);
-        GRRLIB_Printf(0, 75, tex_BMfont5, GRRLIB_WHITE, 1, "Camera look pos x %f z %f y %f", camera_look_x, camera_look_z, camera_look_y);
-        GRRLIB_Printf(0, 100, tex_BMfont5, GRRLIB_WHITE, 1, "Nodes drawn %d", nodes_drawn);
+        GRRLIB_Printf(0, 25, tex_BMfont5, GRRLIB_WHITE, 1, "Player pos x %f y %f z %f", player_x, player_y, player_z);
+        GRRLIB_Printf(0, 50, tex_BMfont5, GRRLIB_WHITE, 1, "Camera look pos x %f y %f z %f", camera_look_x, camera_look_y, camera_look_z);
+        GRRLIB_Printf(0, 75, tex_BMfont5, GRRLIB_WHITE, 1, "Nodes drawn %d", nodes_drawn);
+        GRRLIB_Printf(0, 100, tex_BMfont5, GRRLIB_WHITE, 1, "Node at pos %d", nodes[nodes_pos(player_x / 16.0f, player_y / 16.0f, player_z / 16.0f)]);
         GRRLIB_Render();
     }
 
@@ -252,29 +206,51 @@ void player_input() {
     }
 
     camera_look_x = sin(camera_rot_x) * cos(camera_rot_y) * 2;
-    camera_look_z = cos(camera_rot_x) * cos(camera_rot_y) * 2;
     camera_look_y = sin(camera_rot_y) * 2;
+    camera_look_z = cos(camera_rot_x) * cos(camera_rot_y) * 2;
 
     if (WPAD_ButtonsHeld(0) & WPAD_BUTTON_UP) {
         player_x += camera_look_x * player_speed;
         player_z += camera_look_z * player_speed;
+        if (nodes[nodes_pos(player_x / 16.0f, player_y / 16.0f, player_z / 16.0f)] != 0) {
+            player_x -= camera_look_x * player_speed;
+            player_z -= camera_look_z * player_speed;
+        }
     }
     
     if (WPAD_ButtonsHeld(0) & WPAD_BUTTON_DOWN) {
         player_x -= camera_look_x * player_speed;
         player_z -= camera_look_z * player_speed;
+        if (nodes[nodes_pos(player_x / 16.0f, player_y / 16.0f, player_z / 16.0f)] != 0) {
+            player_x += camera_look_x * player_speed;
+            player_z += camera_look_z * player_speed;
+        }
     }
 
+    // jumping
+    if (nodes[nodes_pos(player_x / 16.0f, (player_y - 16.0) / 16.0f, player_z / 16.0f)] != 0) {
+        player_velocity_y = 0.0f;
+        player_y = (int)player_y;
+
+        if (WPAD_ButtonsHeld(0) & WPAD_BUTTON_1) {
+            player_velocity_y = 1.0f;
+        }
+    } else {
+        player_velocity_y -= 0.03f;
+    }
+
+    player_y += player_velocity_y;
+
+    int look_at_node = nodes_pos(player_x / 16.0f + camera_look_x, 
+            player_y / 16.0f + camera_look_y, 
+            player_z / 16.0f + camera_look_z);
+
     if (WPAD_ButtonsHeld(0) & WPAD_BUTTON_B) {
-        nodes[nodes_pos((int)player_x + camera_look_x, 
-            (int)player_z + camera_look_z, 
-            (int)player_y + camera_look_y)] = 0;
+        nodes[look_at_node] = 0;
     }
 
     if (WPAD_ButtonsHeld(0) & WPAD_BUTTON_A) {
-        nodes[nodes_pos((int)player_x + camera_look_x, 
-            (int)player_z + camera_look_z, 
-            (int)player_y + camera_look_y)] = 3;
+        nodes[look_at_node] = 3;
     }
 }
 
@@ -301,8 +277,8 @@ void draw_wiimotes() {
     }
 }
 
-int nodes_pos(int x, int z, int y) {
-    return (clamp(x, 0, 31) * 512) + (clamp(z, 0, 31) * 16) + clamp(y, 0, 15);
+int nodes_pos(float x, float y, float z) {
+    return (clamp(round(x), 0, 31) * 512) + (clamp(round(z), 0, 31) * 16) + clamp(round(y), 0, 15);
 }
 
 
